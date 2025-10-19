@@ -109,31 +109,38 @@
 <div id="lista"></div>
 
 <script>
-  // URL do seu App Script
-  const API_URL = "https://script.google.com/macros/s/AKfycbxa4cGO4c_B8MdsbPjktWRVicdFNpNKvu-_wuIY1TFnp7Zz8xjUcNNEGu_6UtnO5SGl/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbz57NGIXimFkIK-MmFCz825DQUfj75heyZFxlGtxmM8aNZNyKiyLRyT1QtXFXqeWkKB/exec";
 
   async function carregarPresentes() {
     try {
       const res = await fetch(API_URL);
+      if (!res.ok) throw new Error('Erro ao carregar: ' + res.status);
       const presentes = await res.json();
 
       const lista = document.getElementById("lista");
       lista.innerHTML = "";
 
+      // Se o array vier vazio, mostra uma mensagem
+      if (!Array.isArray(presentes) || presentes.length === 0) {
+        lista.innerHTML = '<p style="text-align:center;color:#666">Nenhum presente cadastrado.</p>';
+        return;
+      }
+
       presentes.forEach(p => {
         const div = document.createElement("div");
-        div.className = "presente" + (p.status === "reservado" ? " reservado" : "");
+        div.className = "presente" + (String(p.status || '').toLowerCase().includes('reserv') ? " reservado" : "");
 
         div.innerHTML = `
-          <span>${p.presente}</span>
-          <!-- <a href="${p.link}" target="_blank">🔗 Ver</a> -->
-          <button ${p.status === "reservado" ? "disabled" : ""} onclick="reservar('${p.presente}')">Presentear</button>
+          <div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${p.presente}</div>
+          <!-- <div><a href="${p.link || '#'}" target="_blank">🔗 Ver</a></div> -->
+          <div><button ${String(p.status || '').toLowerCase().includes('reserv') ? "disabled" : ""} onclick="reservar('${(p.presente||'').replace(/'/g, \"\\'\")}')">Presentear</button></div>
         `;
 
         lista.appendChild(div);
       });
     } catch(e) {
       console.error("Erro ao carregar presentes:", e);
+      document.getElementById("lista").innerHTML = '<p style="color:#c33;text-align:center">Erro ao carregar a lista. Tente recarregar a página.</p>';
     }
   }
 
@@ -144,24 +151,32 @@
     try {
       const res = await fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ presente: nomePresente, convidado }),
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presente: nomePresente, convidado })
       });
 
-      const texto = await res.text();
-      if (texto === "ok") alert("Presente reservado com sucesso!");
-      else alert("Ops, alguém já escolheu esse presente.");
+      // tenta ler json
+      const data = await res.json();
 
-      carregarPresentes();
-    } catch(e) {
-      console.error("Erro ao reservar presente:", e);
-      alert("Não foi possível reservar o presente. Tente novamente.");
+      if (data && data.status === 'success') {
+        alert("Presente reservado com sucesso!");
+      } else {
+        alert("Não foi possível reservar o presente. Talvez já esteja reservado.");
+        console.log('Resposta do servidor:', data);
+      }
+    } catch (err) {
+      console.error("Erro na reserva:", err);
+      alert("Não foi possível reservar o presente. Tente novamente mais tarde.");
     }
+
+    // atualiza a lista (recarrega)
+    carregarPresentes();
   }
 
-  // Inicializa a lista
+  // inicializa
   carregarPresentes();
+</script>
+
 </script>
 </body>
 </html>
-
